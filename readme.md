@@ -38,7 +38,11 @@ const customer = {
   ],
 };
 
-const statement = generateStatement(customer, movies);
+const { statement, errors } = generateStatement(customer, movies);
+
+if (errors.length > 0) {
+  console.warn('Errors encountered:', result.errors);
+}
 
 console.log(statement);
 ```
