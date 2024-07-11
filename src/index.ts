@@ -1,37 +1,25 @@
-import type { Customer, Movie, MoviesDatabase, RentalStatement, RentalCalculation } from '@/types.js';
-import {
-  REGULAR_THRESHOLD_DAYS,
-  CHILDRENS_THRESHOLD_DAYS,
-  NEW_RELEASE_BONUS_THRESHOLD_DAYS,
-  REGULAR_BASE_PRICE,
-  CHILDRENS_BASE_PRICE,
-  NEW_RELEASE_DAILY_RATE,
-  EXTENDED_RENTAL_DAILY_RATE,
-  BASE_FREQUENT_RENTER_POINTS,
-  BONUS_FREQUENT_RENTER_POINTS,
-  MOVIE_CODES,
-} from '@/constants.js';
+import type { Customer, Movie, MoviesDatabase, RentalCalculation, RentalStatement } from '@/types.js';
+import { BASE_FREQUENT_RENTER_POINTS, BONUS_FREQUENT_RENTER_POINTS, PRICING_RULES } from '@/constants.js';
 import { templateBuilder } from '@/utils.js';
 
-export function calculateAmount(movie: Movie, days: number) {
-  switch (movie.code) {
-    case MOVIE_CODES.REGULAR:
-      return REGULAR_BASE_PRICE + Math.max(0, days - REGULAR_THRESHOLD_DAYS) * EXTENDED_RENTAL_DAILY_RATE;
-    case MOVIE_CODES.NEW:
-      return days * NEW_RELEASE_DAILY_RATE;
-    case MOVIE_CODES.CHILDRENS:
-      return CHILDRENS_BASE_PRICE + Math.max(0, days - CHILDRENS_THRESHOLD_DAYS) * EXTENDED_RENTAL_DAILY_RATE;
-    default:
-      return 0;
+export function calculateAmount(movie: Movie, days: number): number {
+  const rule = PRICING_RULES[movie.code];
+  if (!rule) {
+    throw new Error(`Invalid movie code: ${movie.code}`);
   }
+
+  return rule.basePrice + Math.max(0, days - rule.thresholdDays) * rule.dailyRate;
 }
 
-function calculateFrequentRenterPoints(movie: Movie, days: number) {
-  if (movie.code === MOVIE_CODES.NEW && days > NEW_RELEASE_BONUS_THRESHOLD_DAYS) {
-    return BASE_FREQUENT_RENTER_POINTS + BONUS_FREQUENT_RENTER_POINTS;
+export function calculateFrequentRenterPoints(movie: Movie, days: number): number {
+  const rule = PRICING_RULES[movie.code];
+  if (!rule) {
+    throw new Error(`Invalid movie code: ${movie.code}`);
   }
 
-  return BASE_FREQUENT_RENTER_POINTS;
+  const bonusPoints = rule.bonusThresholdDays && days > rule.bonusThresholdDays ? BONUS_FREQUENT_RENTER_POINTS : 0;
+
+  return BASE_FREQUENT_RENTER_POINTS + bonusPoints;
 }
 
 export function generateStatement(customer: Customer, movies: MoviesDatabase): RentalStatement {
