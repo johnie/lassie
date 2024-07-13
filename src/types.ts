@@ -31,3 +31,10 @@ export type Customer = {
 export type MoviesDatabase = {
   [key: string]: Movie;
 };
+
+export type PricingRule = {
+  basePrice: number;
+  thresholdDays: number;
+  dailyRate: number;
+  bonusThresholdDays?: number;
+};

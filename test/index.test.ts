@@ -3,13 +3,16 @@ import type { Customer, Movie, MoviesDatabase } from '@/types.js';
 import {
   REGULAR_THRESHOLD_DAYS,
   CHILDRENS_THRESHOLD_DAYS,
+  NEW_RELEASE_BONUS_THRESHOLD_DAYS,
   REGULAR_BASE_PRICE,
   CHILDRENS_BASE_PRICE,
   NEW_RELEASE_DAILY_RATE,
   EXTENDED_RENTAL_DAILY_RATE,
+  BASE_FREQUENT_RENTER_POINTS,
+  BONUS_FREQUENT_RENTER_POINTS,
   MOVIE_CODES,
 } from '@/constants.js';
-import { calculateAmount, generateStatement } from '@/index.js';
+import { calculateAmount, calculateFrequentRenterPoints, generateStatement } from '@/index.js';
 import { templateBuilder } from '@/utils.js';
 
 vi.mock('@/utils.js', () => ({
@@ -60,9 +63,39 @@ describe('Movie Rental System', () => {
       );
     });
 
-    it('returns 0 for unknown movie code', () => {
+    it('throws an error for unknown movie code', () => {
       const unknownMovie: Movie = { title: 'Unknown Movie', code: 'unknown' as any };
-      expect(calculateAmount(unknownMovie, 1)).toBe(0);
+      expect(() => calculateAmount(unknownMovie, 1)).toThrow('Invalid movie code: unknown');
+    });
+  });
+
+  describe('calculateFrequentRenterPoints', () => {
+    it('calculates correct points for regular movies', () => {
+      const regularMovie: Movie = { title: 'Regular Movie', code: MOVIE_CODES.REGULAR };
+      expect(calculateFrequentRenterPoints(regularMovie, 1)).toBe(BASE_FREQUENT_RENTER_POINTS);
+      expect(calculateFrequentRenterPoints(regularMovie, 5)).toBe(BASE_FREQUENT_RENTER_POINTS);
+    });
+
+    it('calculates correct points for new release movies', () => {
+      const newMovie: Movie = { title: 'New Movie', code: MOVIE_CODES.NEW };
+      expect(calculateFrequentRenterPoints(newMovie, 1)).toBe(BASE_FREQUENT_RENTER_POINTS);
+      expect(calculateFrequentRenterPoints(newMovie, NEW_RELEASE_BONUS_THRESHOLD_DAYS)).toBe(
+        BASE_FREQUENT_RENTER_POINTS,
+      );
+      expect(calculateFrequentRenterPoints(newMovie, NEW_RELEASE_BONUS_THRESHOLD_DAYS + 1)).toBe(
+        BASE_FREQUENT_RENTER_POINTS + BONUS_FREQUENT_RENTER_POINTS,
+      );
+    });
+
+    it("calculates correct points for children's movies", () => {
+      const childrensMovie: Movie = { title: "Children's Movie", code: MOVIE_CODES.CHILDRENS };
+      expect(calculateFrequentRenterPoints(childrensMovie, 1)).toBe(BASE_FREQUENT_RENTER_POINTS);
+      expect(calculateFrequentRenterPoints(childrensMovie, 5)).toBe(BASE_FREQUENT_RENTER_POINTS);
+    });
+
+    it('throws an error for unknown movie code', () => {
+      const unknownMovie: Movie = { title: 'Unknown Movie', code: 'unknown' as any };
+      expect(() => calculateFrequentRenterPoints(unknownMovie, 1)).toThrow('Invalid movie code: unknown');
     });
   });
 
@@ -91,7 +124,7 @@ describe('Movie Rental System', () => {
         ].join('\n'),
         {
           customerName: 'martin',
-          rentalLines: expect.stringContaining('Ran\t3.50'),
+          rentalLines: '	Ran	3.50\n	Trois Couleurs: Bleu	2.00\n	Sunes Sommar	4.50\n	Yara	6.00',
           totalAmount: '16.00',
           totalPoints: 4,
         },
@@ -126,6 +159,8 @@ describe('Movie Rental System', () => {
       expect(result.statement).toContain('Ran\t2.00');
       expect(result.statement).toContain('Sunes Sommar\t1.50');
       expect(result.statement).not.toContain('INVALID');
+      expect(result.statement).toContain('Amount owed is 3.50');
+      expect(result.statement).toContain('You earned 2 frequent renter points');
     });
 
     it('generates empty statement when all movies are invalid', () => {
